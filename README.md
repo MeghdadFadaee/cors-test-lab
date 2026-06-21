@@ -9,6 +9,7 @@ A static, browser-based dashboard for testing real CORS behavior from the page o
 - Preflight detection based on method, headers, and content type.
 - Result view with status, timing, visible response headers, readable body preview, and browser error classification.
 - CORS diagnostics for failed preflights, missing readable responses, credentialed CORS pitfalls, mixed content, and opaque `no-cors` behavior.
+- Domain policy notes for expected allowed and blocked origins, included in saved cases and copied reports.
 - Saved test cases in `localStorage`, with JSON import/export.
 - Copyable diagnostic report for API teams.
 
@@ -20,6 +21,7 @@ This app tests CORS exactly as a browser enforces it. It cannot bypass CORS.
 - Browser-managed headers such as `Origin`, `Host`, `Cookie`, `Referer`, and `Sec-*` cannot be manually set.
 - `no-cors` requests can produce opaque responses where status, headers, and body are intentionally hidden.
 - Testing from GitHub Pages means your API sees the app origin as `https://<user>.github.io`.
+- To verify that an API allows domain A but blocks domain B, run the test page from domain A and domain B. The domain policy fields document expected behavior, but they do not spoof origins.
 
 ## Local Development
 

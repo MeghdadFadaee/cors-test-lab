@@ -352,9 +352,56 @@ textarea:focus {
 .scenario-card span,
 .saved-item span,
 .history-row span,
+.policy-note,
 .muted {
   color: #64748b;
   font-size: 0.9rem;
+}
+
+.policy-panel {
+  margin-top: 20px;
+  border-top: 1px solid #e2e8f0;
+  padding-top: 18px;
+}
+
+.policy-origin {
+  border: 1px solid #dbeafe;
+  border-radius: 8px;
+  padding: 12px;
+  background: #eff6ff;
+}
+
+.policy-origin span,
+.policy-origin strong {
+  display: block;
+}
+
+.policy-origin span {
+  margin-bottom: 4px;
+  color: #2563eb;
+  font-size: 0.76rem;
+  font-weight: 900;
+  text-transform: uppercase;
+}
+
+.policy-origin strong {
+  overflow-wrap: anywhere;
+  color: #1e3a8a;
+}
+
+.policy-note {
+  margin: 10px 0 14px;
+  line-height: 1.5;
+}
+
+.policy-field {
+  margin-top: 12px;
+}
+
+.origin-textarea {
+  min-height: 94px;
+  font-family: "SFMono-Regular", Consolas, "Liberation Mono", monospace;
+  font-size: 0.84rem;
 }
 
 .saved-panel {

@@ -19,6 +19,8 @@ type TestDraft = {
   body: string;
   timeoutMs: number;
   headers: HeaderRow[];
+  allowedOrigins: string[];
+  blockedOrigins: string[];
 };
 
 type SavedCase = TestDraft & {
@@ -75,6 +77,8 @@ const defaultDraft: TestDraft = {
   body: '',
   timeoutMs: 12000,
   headers: [{ id: crypto.randomUUID(), name: '', value: '' }],
+  allowedOrigins: [],
+  blockedOrigins: [],
 };
 
 const scenarios: Scenario[] = [
@@ -191,7 +195,11 @@ function buildHeaders(draft: TestDraft) {
       return;
     }
     if (isForbiddenHeader(name)) {
-      warnings.push(`Browser-managed header "${name}" was skipped because Fetch cannot set it.`);
+      if (name.toLowerCase() === 'origin') {
+        warnings.push('The Origin header was skipped. Browser JavaScript cannot spoof Origin; it always uses the page origin.');
+      } else {
+        warnings.push(`Browser-managed header "${name}" was skipped because Fetch cannot set it.`);
+      }
       return;
     }
     names.add(name.toLowerCase());
@@ -221,6 +229,43 @@ function getOriginLabel() {
   return window.location.origin;
 }
 
+function cleanOriginList(origins: unknown) {
+  if (!Array.isArray(origins)) {
+    return [];
+  }
+  return origins
+    .filter((origin): origin is string => typeof origin === 'string')
+    .map((origin) => origin.trim())
+    .filter(Boolean);
+}
+
+function originLines(origins: string[]) {
+  return origins.join('\n');
+}
+
+function parseOriginLines(value: string) {
+  return value
+    .split('\n')
+    .map((line) => line.trim())
+    .filter(Boolean);
+}
+
+function originKey(value: string) {
+  try {
+    return new URL(value).origin;
+  } catch {
+    return value.trim();
+  }
+}
+
+function uniqueOriginKeys(origins: string[]) {
+  return new Set(origins.map(originKey).filter(Boolean));
+}
+
+function formatOriginList(origins: string[]) {
+  return origins.length ? origins.map((origin) => `  - ${origin}`).join('\n') : '  (none)';
+}
+
 function makeDiagnostics(
   draft: TestDraft,
   result: Pick<TestResult, 'status' | 'responseType' | 'statusCode' | 'error'>,
@@ -229,6 +274,12 @@ function makeDiagnostics(
   const diagnostics: string[] = [];
   const target = parseTargetUrl(draft.url);
   const preflight = expectsPreflight(draft, appliedHeaders);
+  const currentOrigin = getOriginLabel();
+  const currentOriginKey = originKey(window.location.origin);
+  const allowedOriginKeys = uniqueOriginKeys(draft.allowedOrigins);
+  const blockedOriginKeys = uniqueOriginKeys(draft.blockedOrigins);
+  const expectsCurrentAllowed = allowedOriginKeys.has(currentOriginKey);
+  const expectsCurrentBlocked = blockedOriginKeys.has(currentOriginKey);
 
   if (!target) {
     diagnostics.push('The URL is not valid. Use an absolute http:// or https:// API URL.');
@@ -251,6 +302,18 @@ function makeDiagnostics(
     diagnostics.push('Credentialed CORS requires a specific Access-Control-Allow-Origin value and Access-Control-Allow-Credentials: true. Wildcard origins are not allowed.');
   }
 
+  if (draft.allowedOrigins.length || draft.blockedOrigins.length) {
+    diagnostics.push(`Domain policy expectations are recorded for this case, but this browser run only tests the actual page origin: ${currentOrigin}.`);
+  }
+
+  if (expectsCurrentAllowed && expectsCurrentBlocked) {
+    diagnostics.push('The current page origin is listed as both expected allowed and expected blocked. Clean up the policy lists before using this case as evidence.');
+  } else if (expectsCurrentAllowed) {
+    diagnostics.push('The current page origin is listed as expected allowed for this API.');
+  } else if (expectsCurrentBlocked) {
+    diagnostics.push('The current page origin is listed as expected blocked for this API.');
+  }
+
   if (preflight) {
     diagnostics.push('This request should trigger a browser preflight because it uses a non-simple method, header, or content type.');
   } else if (draft.mode === 'cors') {
@@ -262,11 +325,17 @@ function makeDiagnostics(
     if (preflight) {
       diagnostics.push('Check that OPTIONS responds with the requested method and headers in Access-Control-Allow-Methods and Access-Control-Allow-Headers.');
     }
+    if (expectsCurrentAllowed && !expectsCurrentBlocked) {
+      diagnostics.push('Policy mismatch: this origin is expected allowed, but the browser test failed.');
+    }
   }
 
   if (result.status === 'passed') {
     diagnostics.push('JavaScript could read the response, so the browser accepted the CORS policy for this request.');
     diagnostics.push('Only safelisted response headers and headers named in Access-Control-Expose-Headers are visible here.');
+    if (expectsCurrentBlocked && !expectsCurrentAllowed) {
+      diagnostics.push('Policy mismatch: this origin is expected blocked, but the browser test passed.');
+    }
   }
 
   if (result.responseType === 'opaque') {
@@ -275,6 +344,10 @@ function makeDiagnostics(
 
   if (typeof result.statusCode === 'number' && result.statusCode >= 400) {
     diagnostics.push('CORS passed, but the API returned an HTTP error status. Debug the application response separately from CORS.');
+  }
+
+  if (draft.allowedOrigins.some((origin) => originKey(origin) !== currentOriginKey) || draft.blockedOrigins.some((origin) => originKey(origin) !== currentOriginKey)) {
+    diagnostics.push('To truly verify another domain, open this same static app or a small test page from that domain. A browser app cannot set Origin for domain A while running on domain B.');
   }
 
   return diagnostics;
@@ -304,6 +377,13 @@ function makeReport(draft: TestDraft, result: Omit<TestResult, 'report'>, applie
     headerLines,
     draft.body.trim() ? `  Body: ${draft.body}` : '  Body: (empty)',
     '',
+    'Domain policy expectations',
+    `  Actual browser origin: ${getOriginLabel()}`,
+    '  Expected allowed origins:',
+    formatOriginList(draft.allowedOrigins),
+    '  Expected blocked origins:',
+    formatOriginList(draft.blockedOrigins),
+    '',
     'Result',
     `  Status: ${result.status}`,
     `  Browser result: ${result.browserResult}`,
@@ -331,6 +411,8 @@ function normalizedDraft(draft: TestDraft): TestDraft {
     ...draft,
     timeoutMs: Number.isFinite(draft.timeoutMs) ? Math.max(1000, draft.timeoutMs) : 12000,
     headers: draft.headers.length ? draft.headers : [emptyHeader()],
+    allowedOrigins: cleanOriginList(draft.allowedOrigins),
+    blockedOrigins: cleanOriginList(draft.blockedOrigins),
   };
 }
 
@@ -350,7 +432,14 @@ export default function App() {
     try {
       const parsed = JSON.parse(stored) as SavedCase[];
       if (Array.isArray(parsed)) {
-        setSavedCases(parsed);
+        setSavedCases(
+          parsed.map((item) => ({
+            ...normalizedDraft(item),
+            id: item.id || crypto.randomUUID(),
+            name: item.name || `${item.method} ${item.url}`,
+            savedAt: item.savedAt || new Date().toISOString(),
+          })),
+        );
       }
     } catch {
       window.localStorage.removeItem(STORAGE_KEY);
@@ -693,6 +782,43 @@ export default function App() {
                 <span>{scenario.description}</span>
               </button>
             ))}
+          </div>
+
+          <div className="policy-panel">
+            <div className="section-heading compact">
+              <div>
+                <p className="eyebrow">Domain policy</p>
+                <h2>Expected origins</h2>
+              </div>
+            </div>
+            <div className="policy-origin">
+              <span>Actual browser origin</span>
+              <strong>{getOriginLabel()}</strong>
+            </div>
+            <p className="policy-note">
+              This static page cannot spoof Origin. Use these lists to record expected allow/block rules; this run
+              only proves behavior for the actual browser origin above.
+            </p>
+            <label className="field policy-field">
+              <span>Expected allowed origins</span>
+              <textarea
+                className="origin-textarea"
+                value={originLines(draft.allowedOrigins)}
+                onChange={(event) => patchDraft({ allowedOrigins: parseOriginLines(event.target.value) })}
+                placeholder={'https://app.example.com\nhttps://admin.example.com'}
+                spellCheck={false}
+              />
+            </label>
+            <label className="field policy-field">
+              <span>Expected blocked origins</span>
+              <textarea
+                className="origin-textarea"
+                value={originLines(draft.blockedOrigins)}
+                onChange={(event) => patchDraft({ blockedOrigins: parseOriginLines(event.target.value) })}
+                placeholder={'https://unknown.example.com\nhttps://staging.example.net'}
+                spellCheck={false}
+              />
+            </label>
           </div>
 
           <div className="saved-panel">
