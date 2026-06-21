@@ -623,44 +623,40 @@ export default function App() {
 
   return (
     <main className="app-shell">
-      <section className="hero">
+      <header className="topbar">
         <div>
-          <p className="eyebrow">Static browser CORS diagnostics</p>
+          <p className="eyebrow">Browser CORS tester</p>
           <h1>CORS Test Lab</h1>
-          <p className="hero-copy">
-            Test real browser CORS behavior from this page origin, classify preflights, inspect readable responses,
-            and generate reports for API owners.
-          </p>
         </div>
-        <div className="origin-panel">
-          <span>Testing origin</span>
+        <div className="origin-badge">
+          <span>Actual origin</span>
           <strong>{getOriginLabel()}</strong>
         </div>
-      </section>
+      </header>
 
-      <section className="dashboard">
-        <div className="request-panel">
-          <div className="section-heading">
-            <div>
-              <p className="eyebrow">Request builder</p>
-              <h2>Configure a test</h2>
-            </div>
-            <button className="primary" disabled={isRunning} onClick={() => void runTest()}>
+      <section className="workspace">
+        <div className="tester-card">
+          <div className="card-heading">
+            <h2>Test an API endpoint</h2>
+            <p>Run a real browser request from the origin shown above. The app cannot spoof the Origin header.</p>
+          </div>
+
+          <div className="url-row">
+            <label className="field">
+              <span>API URL</span>
+              <input
+                value={draft.url}
+                onChange={(event) => patchDraft({ url: event.target.value })}
+                placeholder="https://api.example.com/v1/resource"
+                inputMode="url"
+              />
+            </label>
+            <button className="primary run-button" disabled={isRunning} onClick={() => void runTest()}>
               {isRunning ? 'Running...' : 'Run test'}
             </button>
           </div>
 
-          <label className="field field-full">
-            <span>API URL</span>
-            <input
-              value={draft.url}
-              onChange={(event) => patchDraft({ url: event.target.value })}
-              placeholder="https://api.example.com/v1/resource"
-              inputMode="url"
-            />
-          </label>
-
-          <div className="control-grid">
+          <div className="request-grid">
             <label className="field">
               <span>Method</span>
               <select value={draft.method} onChange={(event) => patchDraft({ method: event.target.value as HttpMethod })}>
@@ -706,7 +702,7 @@ export default function App() {
             </label>
           </div>
 
-          <div className="status-strip">
+          <div className="summary-strip">
             <span className={preflightExpected ? 'pill warning' : 'pill ok'}>
               {preflightExpected ? 'Preflight expected' : 'Simple request shape'}
             </span>
@@ -714,165 +710,165 @@ export default function App() {
             <span className="pill">Credentials: {draft.credentials}</span>
           </div>
 
-          <div className="section-subhead">
-            <h3>Headers</h3>
-            <button className="ghost" onClick={() => patchDraft({ headers: [...draft.headers, emptyHeader()] })}>
-              Add header
-            </button>
-          </div>
-          <div className="headers-list">
-            {draft.headers.map((header) => (
-              <div className="header-row" key={header.id}>
-                <input
-                  value={header.name}
-                  onChange={(event) => updateHeader(header.id, 'name', event.target.value)}
-                  placeholder="Header name"
-                />
-                <input
-                  value={header.value}
-                  onChange={(event) => updateHeader(header.id, 'value', event.target.value)}
-                  placeholder="Value"
-                />
-                <button className="icon-button" aria-label="Remove header" onClick={() => removeHeader(header.id)}>
-                  x
-                </button>
-              </div>
-            ))}
-          </div>
-
-          <div className="control-grid body-grid">
-            <label className="field">
-              <span>Content type</span>
-              <select value={draft.contentType} onChange={(event) => patchDraft({ contentType: event.target.value })}>
-                {CONTENT_TYPES.map((contentType) => (
-                  <option key={contentType.value} value={contentType.value}>
-                    {contentType.label}
-                  </option>
-                ))}
-              </select>
-            </label>
-            <label className="field field-body">
-              <span>Body</span>
-              <textarea
-                value={draft.body}
-                onChange={(event) => patchDraft({ body: event.target.value })}
-                placeholder='{"example": true}'
-                spellCheck={false}
-              />
-            </label>
-          </div>
-        </div>
-
-        <aside className="side-panel">
-          <div className="section-heading compact">
+          <div className="quick-probes">
             <div>
-              <p className="eyebrow">Scenarios</p>
-              <h2>One-click probes</h2>
+              <h3>Quick probes</h3>
+              <p>Use the same URL with common CORS shapes.</p>
             </div>
-          </div>
-          <div className="scenario-grid">
-            {scenarios.map((scenario) => (
-              <button
-                className="scenario-card"
-                key={scenario.id}
-                disabled={isRunning}
-                onClick={() => void runTest(scenario.overrides, scenario.title)}
-              >
-                <strong>{scenario.title}</strong>
-                <span>{scenario.description}</span>
-              </button>
-            ))}
+            <div className="probe-list">
+              {scenarios.map((scenario) => (
+                <button
+                  className="probe-chip"
+                  key={scenario.id}
+                  disabled={isRunning}
+                  onClick={() => void runTest(scenario.overrides, scenario.title)}
+                  title={scenario.description}
+                >
+                  {scenario.title}
+                </button>
+              ))}
+            </div>
           </div>
 
-          <div className="policy-panel">
-            <div className="section-heading compact">
-              <div>
-                <p className="eyebrow">Domain policy</p>
-                <h2>Expected origins</h2>
-              </div>
-            </div>
-            <div className="policy-origin">
-              <span>Actual browser origin</span>
-              <strong>{getOriginLabel()}</strong>
-            </div>
-            <p className="policy-note">
-              This static page cannot spoof Origin. Use these lists to record expected allow/block rules; this run
-              only proves behavior for the actual browser origin above.
-            </p>
-            <label className="field policy-field">
-              <span>Expected allowed origins</span>
-              <textarea
-                className="origin-textarea"
-                value={originLines(draft.allowedOrigins)}
-                onChange={(event) => patchDraft({ allowedOrigins: parseOriginLines(event.target.value) })}
-                placeholder={'https://app.example.com\nhttps://admin.example.com'}
-                spellCheck={false}
-              />
-            </label>
-            <label className="field policy-field">
-              <span>Expected blocked origins</span>
-              <textarea
-                className="origin-textarea"
-                value={originLines(draft.blockedOrigins)}
-                onChange={(event) => patchDraft({ blockedOrigins: parseOriginLines(event.target.value) })}
-                placeholder={'https://unknown.example.com\nhttps://staging.example.net'}
-                spellCheck={false}
-              />
-            </label>
-          </div>
-
-          <div className="saved-panel">
-            <div className="section-subhead">
-              <h3>Saved cases</h3>
-              <div className="button-pair">
-                <button className="ghost" disabled={!savedCases.length} onClick={exportCases}>
-                  Export
-                </button>
-                <button className="ghost" onClick={() => fileInputRef.current?.click()}>
-                  Import
+          <details className="details-panel">
+            <summary>Request details</summary>
+            <div className="details-body">
+              <div className="section-subhead">
+                <h3>Headers</h3>
+                <button className="ghost" onClick={() => patchDraft({ headers: [...draft.headers, emptyHeader()] })}>
+                  Add header
                 </button>
               </div>
-            </div>
-            <input ref={fileInputRef} hidden type="file" accept="application/json" onChange={(event) => void importCases(event)} />
-            <div className="save-row">
-              <input value={caseName} onChange={(event) => setCaseName(event.target.value)} placeholder="Case name" />
-              <button className="secondary" onClick={saveCase}>
-                Save
-              </button>
-            </div>
-            <div className="saved-list">
-              {savedCases.length === 0 ? (
-                <p className="muted">No saved cases yet.</p>
-              ) : (
-                savedCases.map((saved) => (
-                  <div className="saved-item" key={saved.id}>
-                    <button onClick={() => loadCase(saved)}>
-                      <strong>{saved.name}</strong>
-                      <span>
-                        {saved.method} {saved.url || 'No URL'}
-                      </span>
-                    </button>
-                    <button
-                      className="icon-button"
-                      aria-label={`Delete ${saved.name}`}
-                      onClick={() => setSavedCases((current) => current.filter((item) => item.id !== saved.id))}
-                    >
+              <div className="headers-list">
+                {draft.headers.map((header) => (
+                  <div className="header-row" key={header.id}>
+                    <input
+                      value={header.name}
+                      onChange={(event) => updateHeader(header.id, 'name', event.target.value)}
+                      placeholder="Header name"
+                    />
+                    <input
+                      value={header.value}
+                      onChange={(event) => updateHeader(header.id, 'value', event.target.value)}
+                      placeholder="Value"
+                    />
+                    <button className="icon-button" aria-label="Remove header" onClick={() => removeHeader(header.id)}>
                       x
                     </button>
                   </div>
-                ))
-              )}
-            </div>
-          </div>
-        </aside>
-      </section>
+                ))}
+              </div>
 
-      <section className="results-layout">
+              <div className="body-grid">
+                <label className="field">
+                  <span>Content type</span>
+                  <select value={draft.contentType} onChange={(event) => patchDraft({ contentType: event.target.value })}>
+                    {CONTENT_TYPES.map((contentType) => (
+                      <option key={contentType.value} value={contentType.value}>
+                        {contentType.label}
+                      </option>
+                    ))}
+                  </select>
+                </label>
+                <label className="field field-body">
+                  <span>Body</span>
+                  <textarea
+                    value={draft.body}
+                    onChange={(event) => patchDraft({ body: event.target.value })}
+                    placeholder='{"example": true}'
+                    spellCheck={false}
+                  />
+                </label>
+              </div>
+            </div>
+          </details>
+
+          <details className="details-panel">
+            <summary>Domain policy notes</summary>
+            <div className="details-body">
+              <div className="policy-origin">
+                <span>Actual browser origin</span>
+                <strong>{getOriginLabel()}</strong>
+              </div>
+              <p className="policy-note">
+                Add expected allowed or blocked origins for your report. This is not a spoofed test; to verify another
+                domain, run this app from that domain.
+              </p>
+              <div className="policy-grid">
+                <label className="field policy-field">
+                  <span>Expected allowed origins</span>
+                  <textarea
+                    className="origin-textarea"
+                    value={originLines(draft.allowedOrigins)}
+                    onChange={(event) => patchDraft({ allowedOrigins: parseOriginLines(event.target.value) })}
+                    placeholder={'https://app.example.com\nhttps://admin.example.com'}
+                    spellCheck={false}
+                  />
+                </label>
+                <label className="field policy-field">
+                  <span>Expected blocked origins</span>
+                  <textarea
+                    className="origin-textarea"
+                    value={originLines(draft.blockedOrigins)}
+                    onChange={(event) => patchDraft({ blockedOrigins: parseOriginLines(event.target.value) })}
+                    placeholder={'https://unknown.example.com\nhttps://staging.example.net'}
+                    spellCheck={false}
+                  />
+                </label>
+              </div>
+            </div>
+          </details>
+
+          <details className="details-panel">
+            <summary>Saved cases</summary>
+            <div className="details-body">
+              <div className="save-row">
+                <input value={caseName} onChange={(event) => setCaseName(event.target.value)} placeholder="Case name" />
+                <button className="secondary" onClick={saveCase}>
+                  Save
+                </button>
+              </div>
+              <div className="saved-actions">
+                <button className="ghost" disabled={!savedCases.length} onClick={exportCases}>
+                  Export JSON
+                </button>
+                <button className="ghost" onClick={() => fileInputRef.current?.click()}>
+                  Import JSON
+                </button>
+              </div>
+              <input ref={fileInputRef} hidden type="file" accept="application/json" onChange={(event) => void importCases(event)} />
+              <div className="saved-list">
+                {savedCases.length === 0 ? (
+                  <p className="muted">No saved cases yet.</p>
+                ) : (
+                  savedCases.map((saved) => (
+                    <div className="saved-item" key={saved.id}>
+                      <button onClick={() => loadCase(saved)}>
+                        <strong>{saved.name}</strong>
+                        <span>
+                          {saved.method} {saved.url || 'No URL'}
+                        </span>
+                      </button>
+                      <button
+                        className="icon-button"
+                        aria-label={`Delete ${saved.name}`}
+                        onClick={() => setSavedCases((current) => current.filter((item) => item.id !== saved.id))}
+                      >
+                        x
+                      </button>
+                    </div>
+                  ))
+                )}
+              </div>
+            </div>
+          </details>
+        </div>
+
         <div className="result-panel">
-          <div className="section-heading">
+          <div className="card-heading result-heading">
             <div>
-              <p className="eyebrow">Latest result</p>
-              <h2>{latestResult ? latestResult.label : 'No test run yet'}</h2>
+              <h2>Result</h2>
+              <p>{latestResult ? latestResult.label : 'Run a test to see browser evidence and diagnostics.'}</p>
             </div>
             {latestResult ? (
               <button className="secondary" onClick={() => void copyReport(latestResult)}>
@@ -892,11 +888,14 @@ export default function App() {
                 <span className={`big-status ${latestResult.status}`}>{latestResult.status}</span>
                 <div>
                   <strong>{latestResult.browserResult}</strong>
-                  <span>
-                    {latestResult.durationMs}ms
-                    {latestResult.statusCode ? `, HTTP ${latestResult.statusCode} ${latestResult.statusText ?? ''}` : ''}
-                  </span>
+                  <span>{latestResult.durationMs}ms</span>
                 </div>
+              </div>
+
+              <div className="result-meta">
+                <span>HTTP: {latestResult.statusCode ? `${latestResult.statusCode} ${latestResult.statusText ?? ''}` : 'not readable'}</span>
+                <span>Type: {latestResult.responseType ?? 'not available'}</span>
+                <span>Origin: {getOriginLabel()}</span>
               </div>
 
               {latestResult.error ? <div className="alert danger">{latestResult.error}</div> : null}
@@ -922,24 +921,19 @@ export default function App() {
               </div>
             </>
           )}
-        </div>
 
-        <div className="analysis-panel">
-          <div className="section-heading compact">
-            <div>
-              <p className="eyebrow">Analysis</p>
-              <h2>What it means</h2>
-            </div>
+          <div className="analysis-block">
+            <h3>Diagnostics</h3>
+            {latestResult ? (
+              <ul className="diagnostics-list">
+                {latestResult.diagnostics.map((diagnostic) => (
+                  <li key={diagnostic}>{diagnostic}</li>
+                ))}
+              </ul>
+            ) : (
+              <p className="muted">Diagnostics appear after a run.</p>
+            )}
           </div>
-          {latestResult ? (
-            <ul className="diagnostics-list">
-              {latestResult.diagnostics.map((diagnostic) => (
-                <li key={diagnostic}>{diagnostic}</li>
-              ))}
-            </ul>
-          ) : (
-            <p className="muted">Diagnostics appear after a run.</p>
-          )}
 
           <div className="history">
             <h3>Run history</h3>
