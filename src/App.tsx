@@ -3,6 +3,7 @@ import { ChangeEvent, useEffect, useMemo, useRef, useState } from 'react';
 type HttpMethod = 'GET' | 'POST' | 'PUT' | 'PATCH' | 'DELETE' | 'HEAD' | 'OPTIONS';
 type CorsMode = 'cors' | 'no-cors' | 'same-origin';
 type CredentialsMode = 'omit' | 'same-origin' | 'include';
+type ThemeMode = 'system' | 'light' | 'dark';
 
 type HeaderRow = {
   id: string;
@@ -56,6 +57,7 @@ type Scenario = {
 };
 
 const STORAGE_KEY = 'cors-test-lab-cases-v1';
+const THEME_STORAGE_KEY = 'cors-test-lab-theme-v1';
 
 const METHODS: HttpMethod[] = ['GET', 'POST', 'PUT', 'PATCH', 'DELETE', 'HEAD', 'OPTIONS'];
 const MODES: CorsMode[] = ['cors', 'no-cors', 'same-origin'];
@@ -66,6 +68,12 @@ const CONTENT_TYPES = [
   { label: 'Text', value: 'text/plain' },
   { label: 'Form URL encoded', value: 'application/x-www-form-urlencoded' },
   { label: 'Multipart form', value: 'multipart/form-data' },
+];
+
+const THEME_OPTIONS: Array<{ label: string; value: ThemeMode }> = [
+  { label: 'System', value: 'system' },
+  { label: 'Light', value: 'light' },
+  { label: 'Dark', value: 'dark' },
 ];
 
 const defaultDraft: TestDraft = {
@@ -416,13 +424,54 @@ function normalizedDraft(draft: TestDraft): TestDraft {
   };
 }
 
+function getInitialTheme(): ThemeMode {
+  try {
+    const stored = window.localStorage.getItem(THEME_STORAGE_KEY);
+    return stored === 'light' || stored === 'dark' || stored === 'system' ? stored : 'system';
+  } catch {
+    return 'system';
+  }
+}
+
+function getResolvedTheme(themeMode: ThemeMode) {
+  if (themeMode !== 'system') {
+    return themeMode;
+  }
+  return window.matchMedia('(prefers-color-scheme: dark)').matches ? 'dark' : 'light';
+}
+
 export default function App() {
   const [draft, setDraft] = useState<TestDraft>(defaultDraft);
+  const [themeMode, setThemeMode] = useState<ThemeMode>(getInitialTheme);
   const [caseName, setCaseName] = useState('');
   const [savedCases, setSavedCases] = useState<SavedCase[]>([]);
   const [results, setResults] = useState<TestResult[]>([]);
   const [isRunning, setIsRunning] = useState(false);
   const fileInputRef = useRef<HTMLInputElement>(null);
+
+  useEffect(() => {
+    const media = window.matchMedia('(prefers-color-scheme: dark)');
+
+    function applyTheme() {
+      const resolvedTheme = getResolvedTheme(themeMode);
+      document.documentElement.dataset.theme = themeMode;
+      document.documentElement.dataset.resolvedTheme = resolvedTheme;
+      document.documentElement.style.colorScheme = resolvedTheme;
+      document.querySelector('meta[name="theme-color"]')?.setAttribute(
+        'content',
+        resolvedTheme === 'dark' ? '#0f172a' : '#2563eb',
+      );
+      try {
+        window.localStorage.setItem(THEME_STORAGE_KEY, themeMode);
+      } catch {
+        // Theme still applies for the current session when storage is unavailable.
+      }
+    }
+
+    applyTheme();
+    media.addEventListener('change', applyTheme);
+    return () => media.removeEventListener('change', applyTheme);
+  }, [themeMode]);
 
   useEffect(() => {
     const stored = window.localStorage.getItem(STORAGE_KEY);
@@ -628,9 +677,23 @@ export default function App() {
           <p className="eyebrow">Browser CORS tester</p>
           <h1>CORS Test Lab</h1>
         </div>
-        <div className="origin-badge">
-          <span>Actual origin</span>
-          <strong>{getOriginLabel()}</strong>
+        <div className="topbar-actions">
+          <div className="theme-switcher" aria-label="Theme">
+            {THEME_OPTIONS.map((option) => (
+              <button
+                className={themeMode === option.value ? 'active' : ''}
+                key={option.value}
+                type="button"
+                onClick={() => setThemeMode(option.value)}
+              >
+                {option.label}
+              </button>
+            ))}
+          </div>
+          <div className="origin-badge">
+            <span>Actual origin</span>
+            <strong>{getOriginLabel()}</strong>
+          </div>
         </div>
       </header>
 

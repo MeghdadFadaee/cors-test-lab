@@ -15,6 +15,21 @@
     />
     <meta property="og:type" content="website" />
     <link rel="icon" type="image/svg+xml" href="./cors-lab.svg" />
+    <script>
+      (() => {
+        try {
+          const stored = localStorage.getItem('cors-test-lab-theme-v1');
+          const mode = stored === 'light' || stored === 'dark' || stored === 'system' ? stored : 'system';
+          const resolved = mode === 'system' && matchMedia('(prefers-color-scheme: dark)').matches ? 'dark' : mode === 'dark' ? 'dark' : 'light';
+          document.documentElement.dataset.theme = mode;
+          document.documentElement.dataset.resolvedTheme = resolved;
+          document.documentElement.style.colorScheme = resolved;
+          document.querySelector('meta[name="theme-color"]')?.setAttribute('content', resolved === 'dark' ? '#0f172a' : '#2563eb');
+        } catch {
+          document.documentElement.dataset.theme = 'system';
+        }
+      })();
+    </script>
     <title>CORS Test Lab</title>
   </head>
   <body>
